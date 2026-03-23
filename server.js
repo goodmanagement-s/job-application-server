@@ -1,3 +1,5 @@
+const { Resend } = require("resend");
+const resend = new Resend(process.env.RESEND_API_KEY);
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
@@ -66,42 +68,28 @@ app.post(
         });
       }
 
-      // 📩 SEND EMAIL TO YOU
-      await transporter.sendMail({
-        from: `"Job Application" <goodmanagement29@gmail.com>`,
-        to: "goodmanagement29@gmail.com", // where YOU receive applications
-        subject: "New Application - The Good Management Company",
-        text: `
-New Applicant Details:
-
+      // SEND TO YOU
+await resend.emails.send({
+  from: "onboarding@resend.dev",
+  to: "goodmanagement29@gmail.com",
+  subject: "New Application - The Good Management Company",
+  text: `
 Name: ${name}
 Email: ${email}
 Phone: ${phone}
 
-Why they are interested:
+Message:
 ${message}
-        `,
-        attachments
-      });
+  `
+});
 
-      // 📩 AUTO-REPLY TO APPLICANT
-      await transporter.sendMail({
-        from: `"The Good Management Company" <goodmanagement29@gmail.com>`,
-        to: email,
-        subject: "Application Received - The Good Management Company",
-        text: `
-Hi ${name},
-
-Thank you for applying to our Management Development Program.
-
-We’ve received your application and our team will review it shortly.
-
-We appreciate your interest in building a leadership career with us.
-
-Kind regards,  
-The Good Management Company
-        `
-      });
+// AUTO REPLY
+await resend.emails.send({
+  from: "onboarding@resend.dev",
+  to: email,
+  subject: "Application Received",
+  text: `Hi ${name}, thanks for applying! We’ll be in touch soon.`
+});
 
       res.send("✅ Application submitted successfully!");
     } catch (error) {
