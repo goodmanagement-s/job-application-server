@@ -1,19 +1,21 @@
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
-const nodemailer = require("nodemailer");
-
+const nodemailer = require("nodemailer"); // ← THIS MUST BE HERE
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+const app = express();
+app.use(cors());
 
-// File upload setup
+
+// Store uploaded files
 const upload = multer({ dest: "uploads/" });
 
-// Email transporter
+// 🔐 EMAIL SETUP (GMAIL)
 const transporter = nodemailer.createTransport({
- const transporter = nodemailer.createTransport({
+  const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
   secure: false, // VERY IMPORTANT (false for 587)
@@ -23,16 +25,18 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Form route
+// 🚀 FORM SUBMISSION ROUTE
 app.post("/send", upload.fields([
   { name: "cv", maxCount: 1 },
   { name: "otherFiles", maxCount: 5 }
 ]), async (req, res) => {
+
   try {
     const { name, email, phone, message } = req.body;
 
     let attachments = [];
 
+    // CV upload
     if (req.files["cv"]) {
       attachments.push({
         filename: req.files["cv"][0].originalname,
@@ -40,6 +44,7 @@ app.post("/send", upload.fields([
       });
     }
 
+    // Other files upload
     if (req.files["otherFiles"]) {
       req.files["otherFiles"].forEach(file => {
         attachments.push({
@@ -49,29 +54,61 @@ app.post("/send", upload.fields([
       });
     }
 
-    // Send to YOU
+    // ✉️ SEND EMAIL
     await transporter.sendMail({
       from: email,
-      to: "goodmanagement29@gmail.com",
+      to: "goodmanagement29@gmail.com",  // <-- CHANGE THIS (where you receive applications)
       subject: "New Application - The Good Management Company",
       text: `
+New Applicant Details:
+
 Name: ${name}
 Email: ${email}
 Phone: ${phone}
 
-Message:
+Why they are interested:
 ${message}
       `,
       attachments
     });
 
-    // Auto reply
-    await transporter.sendMail({
-      from: "goodmanagement29@gmail.com",
-      to: email,
-      subject: "Application Received",
-      text: `Hi ${name},\n\nThanks for applying! We’ll be in touch soon.\n\n- The Good Management Company`
-    });
+// SEND EMAIL TO YOU
+await transporter.sendMail({
+  from: email,
+  to: "YOUR_EMAIL@gmail.com",
+  subject: "New Application - The Good Management Company",
+  text: `
+New Applicant Details:
+
+Name: ${name}
+Email: ${email}
+Phone: ${phone}
+
+Why they are interested:
+${message}
+  `,
+  attachments
+});
+
+
+// 👇 ADD THIS RIGHT HERE (AUTO REPLY)
+await transporter.sendMail({
+  from: "goodmanagement29@gmail.com",
+  to: email,
+  subject: "Application Received - The Good Management Company",
+  text: `
+Hi ${name},
+
+Thank you for applying to our Management Development Program.
+
+We’ve received your application and our team will review it shortly.
+
+We appreciate your interest in building a leadership career with us.
+
+Kind regards,
+The Good Management Company
+  `
+});
 
     res.send("✅ Application submitted successfully!");
 
@@ -81,6 +118,7 @@ ${message}
   }
 });
 
+// 🌐 START SERVER
 app.listen(3000, () => {
-  console.log("🚀 Server running on port 3000");
+  console.log("🚀 Server running on http://localhost:3000");
 });
