@@ -1,10 +1,13 @@
 const express = require("express");
-const multer = require("multer");
-const nodemailer = require("nodemailer");
 const cors = require("cors");
 
 const app = express();
+
 app.use(cors());
+app.use(express.json());
+const app = express();
+app.use(cors());
+
 
 // Store uploaded files
 const upload = multer({ dest: "uploads/" });
