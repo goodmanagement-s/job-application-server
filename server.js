@@ -13,7 +13,10 @@ const upload = multer({ dest: "uploads/" });
 
 // Email transporter
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+ const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, // VERY IMPORTANT (false for 587)
   auth: {
     user: "goodmanagement29@gmail.com",
     pass: "kpwa rjkm gskl jiac"
