@@ -158,7 +158,7 @@ document.getElementById("applicationForm").addEventListener("submit", async func
   responseMessage.innerHTML = "Submitting...";
 
   try {
-    const response = await fetch("http://localhost:3000/send", {
+    const response = await fetch("https://job-application-server-1-dqvl.onrender.com/send", {
       method: "POST",
       body: formData
     });
