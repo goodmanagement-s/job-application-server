@@ -1,10 +1,8 @@
-const { Resend } = require("resend");
-const resend = new Resend(process.env.RESEND_API_KEY);
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
-const nodemailer = require("nodemailer");
-const path = require("path");
+const fs = require("fs");
+const { Resend } = require("resend");
 
 const app = express();
 
@@ -12,96 +10,103 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve your frontend (index.html)
-app.use(express.static(path.join(__dirname)));
-
 // File upload setup
 const upload = multer({ dest: "uploads/" });
 
-// ✅ EMAIL SETUP (FIXED FOR RENDER)
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // IMPORTANT
-  auth: {
-    user: "goodmanagement29@gmail.com",   // YOUR EMAIL
-    pass: "X!69Catwalk"             // YOUR APP PASSWORD
-  },
-  tls: {
-    rejectUnauthorized: false
-  }
-});
+// Resend setup (uses environment variable)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ✅ TEST ROUTE (fixes "Cannot GET /")
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
+// ROUTE
+app.post("/send", upload.fields([
+  { name: "cv", maxCount: 1 },
+  { name: "otherFiles", maxCount: 5 }
+]), async (req, res) => {
 
-// 🚀 FORM SUBMISSION ROUTE
-app.post(
-  "/send",
-  upload.fields([
-    { name: "cv", maxCount: 1 },
-    { name: "otherFiles", maxCount: 5 }
-  ]),
-  async (req, res) => {
-    try {
-      const { name, email, phone, message } = req.body;
+  try {
+    const { name, email, phone, message } = req.body;
 
-      let attachments = [];
+    let attachments = [];
+    let filePaths = []; // to delete later
 
-      // CV upload
-      if (req.files["cv"]) {
+    // CV
+    if (req.files["cv"]) {
+      const file = req.files["cv"][0];
+
+      attachments.push({
+        filename: file.originalname,
+        content: fs.readFileSync(file.path)
+      });
+
+      filePaths.push(file.path);
+    }
+
+    // Other files
+    if (req.files["otherFiles"]) {
+      req.files["otherFiles"].forEach(file => {
         attachments.push({
-          filename: req.files["cv"][0].originalname,
-          path: req.files["cv"][0].path
+          filename: file.originalname,
+          content: fs.readFileSync(file.path)
         });
-      }
 
-      // Other files upload
-      if (req.files["otherFiles"]) {
-        req.files["otherFiles"].forEach(file => {
-          attachments.push({
-            filename: file.originalname,
-            path: file.path
-          });
-        });
-      }
+        filePaths.push(file.path);
+      });
+    }
 
-      // SEND TO YOU
-await resend.emails.send({
-  from: "onboarding@resend.dev",
-  to: "goodmanagement29@gmail.com",
-  subject: "New Application - The Good Management Company",
-  text: `
+    // SEND EMAIL TO YOU
+    await resend.emails.send({
+      from: "The Good Management <onboarding@resend.dev>",
+      to: "goodmanagement29@gmail.com",
+      subject: "New Application - The Good Management Company",
+      text: `
+New Applicant Details:
+
 Name: ${name}
 Email: ${email}
 Phone: ${phone}
 
-Message:
+Why they are interested:
 ${message}
-  `
-});
+      `,
+      attachments
+    });
 
-// AUTO REPLY
-await resend.emails.send({
-  from: "onboarding@resend.dev",
-  to: email,
-  subject: "Application Received",
-  text: `Hi ${name}, thanks for applying! We’ll be in touch soon.`
-});
+    // AUTO REPLY TO USER
+    await resend.emails.send({
+      from: "The Good Management <onboarding@resend.dev>",
+      to: email,
+      subject: "Application Received",
+      text: `
+Hi ${name},
 
-      res.send("✅ Application submitted successfully!");
-    } catch (error) {
-      console.error("❌ ERROR:", error);
-      res.status(500).send("❌ Error sending application.");
-    }
+Thank you for applying to our Management Development Program.
+
+We’ve received your application and our team will review it shortly.
+
+Kind regards,
+The Good Management Company
+      `
+    });
+
+    // CLEAN UP FILES (delete from server)
+    filePaths.forEach(path => {
+      try {
+        fs.unlinkSync(path);
+      } catch (err) {
+        console.error("Error deleting file:", err);
+      }
+    });
+
+    res.send("✅ Application submitted successfully!");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("❌ Error sending application.");
   }
-);
+});
 
-// 🌐 PORT FIX FOR RENDER
+// START SERVER
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("🚀 Server running on port " + PORT);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
