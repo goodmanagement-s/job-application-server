@@ -23,7 +23,7 @@ const transporter = nodemailer.createTransport({
   secure: false, // IMPORTANT
   auth: {
     user: "goodmanagement29@gmail.com",   // YOUR EMAIL
-    pass: "YOUR_APP_PASSWORD"             // YOUR APP PASSWORD
+    pass: "X!69Catwalk"             // YOUR APP PASSWORD
   },
   tls: {
     rejectUnauthorized: false
