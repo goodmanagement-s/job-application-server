@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The Good Management Company Careers</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #f4f6f8;
+}
+
+header {
+  background: #0a0a0a;
+  color: white;
+  padding: 30px;
+  text-align: center;
+}
+
+header h1 {
+  margin: 0;
+}
+
+.container {
+  max-width: 850px;
+  margin: 30px auto;
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+}
+
+h2, h3 {
+  margin-top: 0;
+}
+
+.section {
+  margin-bottom: 25px;
+}
+
+ul {
+  padding-left: 20px;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+label {
+  margin-top: 15px;
+  display: block;
+}
+
+button {
+  background: #000;
+  color: white;
+  padding: 14px;
+  border: none;
+  width: 100%;
+  margin-top: 20px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+button:hover {
+  background: #333;
+}
+
+.success {
+  color: green;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.error {
+  color: red;
+  text-align: center;
+  margin-top: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>The Good Management Company</h1>
+  <p>Management Development Program</p>
+</header>
+
+<div class="container">
+
+  <div class="section">
+    <h2>About the Program</h2>
+    <p>
+      Designed for high performers who want to build a long-term leadership and management career.
+      This structured program focuses on business operations, leadership development, and strategic growth.
+    </p>
+  </div>
+
+  <div class="section">
+    <h3>What you’ll do:</h3>
+    <ul>
+      <li>Learn all aspects of business operations</li>
+      <li>Develop advanced leadership and management skills</li>
+      <li>Support client strategy and campaign planning</li>
+      <li>Prepare for senior leadership and management roles</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h3>What we’re looking for:</h3>
+    <ul>
+      <li>Strong ambition and long-term vision</li>
+      <li>Coachable mindset</li>
+      <li>Consistent performance and discipline</li>
+      <li>Desire to build and lead teams</li>
+    </ul>
+  </div>
+
+  <form id="applicationForm" enctype="multipart/form-data">
+
+    <h3>Apply Now</h3>
+
+    <input type="text" name="name" placeholder="Full Name" required>
+    <input type="email" name="email" placeholder="Email Address" required>
+    <input type="tel" name="phone" placeholder="Phone Number" required>
+
+    <textarea name="message" placeholder="Why are you interested?" rows="5" required></textarea>
+
+    <label>Upload CV</label>
+    <input type="file" name="cv" required>
+
+    <label>Upload Other Files</label>
+    <input type="file" name="otherFiles" multiple>
+
+    <button type="submit">Submit Application</button>
+
+    <div id="responseMessage"></div>
+
+  </form>
+
+</div>
+
+<script>
+document.getElementById("applicationForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+
+  const form = this;
+  const formData = new FormData(form);
+  const responseMessage = document.getElementById("responseMessage");
+
+  responseMessage.innerHTML = "Submitting...";
+
+  try {
+    const response = await fetch("http://localhost:3000/send", {
+      method: "POST",
+      body: formData
+    });
+
+    const result = await response.text();
+
+    responseMessage.className = "success";
+    responseMessage.innerHTML = result;
+
+    form.reset();
+
+  } catch (error) {
+    responseMessage.className = "error";
+    responseMessage.innerHTML = "Something went wrong. Please try again.";
+  }
+});
+</script>
+
+</body>
+</html>
