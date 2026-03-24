@@ -1,6 +1,20 @@
+const express = require("express");
+const cors = require("cors");
+const multer = require("multer");
+const fs = require("fs");
 const mongoose = require("mongoose");
+const { Resend } = require("resend");
 
-// Connect to DB
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// File upload
+const upload = multer({ dest: "uploads/" });
+
+// ✅ CONNECT TO MONGODB
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -17,24 +31,11 @@ const applicationSchema = new mongoose.Schema({
 });
 
 const Application = mongoose.model("Application", applicationSchema);
-const express = require("express");
-const cors = require("cors");
-const multer = require("multer");
-const fs = require("fs");
-const { Resend } = require("resend");
 
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// File upload setup
-const upload = multer({ dest: "uploads/" });
-
-// Resend setup (uses environment variable)
+// ✅ RESEND SETUP
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// 🚀 FORM ROUTE
 app.post("/send", upload.fields([
   { name: "cv", maxCount: 1 },
   { name: "otherFiles", maxCount: 5 }
@@ -46,27 +47,31 @@ app.post("/send", upload.fields([
     let attachments = [];
     let filePaths = [];
 
-    // 👉 build attachments FIRST
+    // CV
     if (req.files["cv"]) {
       const file = req.files["cv"][0];
+
       attachments.push({
         filename: file.originalname,
         content: fs.readFileSync(file.path)
       });
+
       filePaths.push(file.path);
     }
 
+    // Other files
     if (req.files["otherFiles"]) {
       req.files["otherFiles"].forEach(file => {
         attachments.push({
           filename: file.originalname,
           content: fs.readFileSync(file.path)
         });
+
         filePaths.push(file.path);
       });
     }
 
-    // ✅ 👉 ADD DATABASE SAVE HERE
+    // ✅ SAVE TO DATABASE
     const fileNames = attachments.map(file => file.filename);
 
     await Application.create({
@@ -77,18 +82,25 @@ app.post("/send", upload.fields([
       files: fileNames
     });
 
-    // 👉 THEN send emails
+    // 📩 SEND EMAIL TO YOU
     await resend.emails.send({
       from: "The Good Management <onboarding@resend.dev>",
       to: "goodmanagement29@gmail.com",
-      subject: "New Application",
-      text: `Name: ${name}`,
+      subject: "New Application - The Good Management Company",
+      text: `
+New Applicant Details:
+
+Name: ${name}
+Email: ${email}
+Phone: ${phone}
+
+Message:
+${message}
+      `,
       attachments
     });
 
-    ...
-
-    // AUTO REPLY TO USER
+    // 📧 AUTO REPLY
     await resend.emails.send({
       from: "The Good Management <onboarding@resend.dev>",
       to: email,
@@ -98,27 +110,37 @@ Hi ${name},
 
 Thank you for applying to our Management Development Program.
 
-We’ve received your application and our team will review it shortly.
+We’ve received your application and will review it shortly.
 
 Kind regards,
 The Good Management Company
       `
     });
 
-    // CLEAN UP FILES (delete from server)
+    // 🧹 CLEAN UP FILES
     filePaths.forEach(path => {
       try {
         fs.unlinkSync(path);
       } catch (err) {
-        console.error("Error deleting file:", err);
+        console.error("Delete error:", err);
       }
     });
 
     res.send("✅ Application submitted successfully!");
 
   } catch (error) {
-    console.error(error);
+    console.error("❌ ERROR:", error);
     res.status(500).send("❌ Error sending application.");
+  }
+});
+
+// 📊 ADMIN ROUTE (VIEW APPLICATIONS)
+app.get("/applications", async (req, res) => {
+  try {
+    const apps = await Application.find().sort({ createdAt: -1 });
+    res.json(apps);
+  } catch (err) {
+    res.status(500).send("Error fetching applications");
   }
 });
 
@@ -126,5 +148,5 @@ The Good Management Company
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log("🚀 Server running on port " + PORT);
 });
