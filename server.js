@@ -1,3 +1,22 @@
+const mongoose = require("mongoose");
+
+// Connect to DB
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
+
+// Schema
+const applicationSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  phone: String,
+  message: String,
+  files: [String],
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Application = mongoose.model("Application", applicationSchema);
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
