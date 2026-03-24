@@ -75,7 +75,7 @@ app.post("/send", upload.fields([
     // Send email
     await resend.emails.send({
       from: "onboarding@resend.dev",
-      to: "your@email.com", // 🔥 CHANGE THIS
+      to: "goodmanagement29@gmail.com", // 🔥 CHANGE THIS
       subject: "New Job Application",
       html: `
         <h2>New Application</h2>
