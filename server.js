@@ -1,11 +1,11 @@
 require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const fs = require("fs");
 const mongoose = require("mongoose");
 const { Resend } = require("resend");
-require("dotenv").config();
 
 const app = express();
 
@@ -53,24 +53,12 @@ app.post("/send", upload.fields([
   { name: "files", maxCount: 5 }
 ]), async (req, res) => {
   try {
-    console.log("📥 BODY:", req.body);
-    console.log("📎 FILES:", req.files);
-
     const { name, email, phone, message } = req.body;
 
-    // =======================
-    // SAVE TO DATABASE
-    // =======================
-    try {
-      await new Application({ name, email, phone, message }).save();
-      console.log("✅ Saved to database");
-    } catch (dbErr) {
-      console.log("❌ DB ERROR:", dbErr);
-    }
+    // Save to DB
+    await new Application({ name, email, phone, message }).save();
 
-    // =======================
-    // PREPARE ATTACHMENTS
-    // =======================
+    // Prepare attachments
     const attachments = [];
 
     if (req.files?.cv) {
@@ -90,12 +78,10 @@ app.post("/send", upload.fields([
       });
     }
 
-    // =======================
-    // SEND EMAIL
-    // =======================
-    const emailResponse = await resend.emails.send({
-      from: "onboarding@resend.dev", // change if you have domain
-      to: "your@email.com", // 🔥 CHANGE THIS
+    // Send email
+    await resend.emails.send({
+      from: "onboarding@resend.dev",
+      to: process.env.EMAIL_TO, // safer
       subject: "New Job Application",
       html: `
         <h2>New Application</h2>
@@ -107,29 +93,16 @@ app.post("/send", upload.fields([
       attachments
     });
 
-    console.log("📨 EMAIL RESPONSE:", emailResponse);
-
-    // =======================
-    // CLEAN UP FILES (SAFE)
-    // =======================
-    try {
-      if (req.files?.cv) {
-        fs.unlinkSync(req.files.cv[0].path);
-      }
-
-      if (req.files?.files) {
-        req.files.files.forEach(file => {
-          fs.unlinkSync(file.path);
-        });
-      }
-    } catch (cleanupErr) {
-      console.log("⚠️ Cleanup error:", cleanupErr);
+    // Cleanup files
+    if (req.files?.cv) fs.unlinkSync(req.files.cv[0].path);
+    if (req.files?.files) {
+      req.files.files.forEach(file => fs.unlinkSync(file.path));
     }
 
     res.json({ success: true });
 
   } catch (error) {
-    console.error("🔥 FULL ERROR:", error);
+    console.error("🔥 ERROR:", error);
     res.status(500).json({ error: "Failed to send application" });
   }
 });
