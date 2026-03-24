@@ -35,7 +35,6 @@ const upload = multer({ dest: "uploads/" });
 // Resend setup (uses environment variable)
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ROUTE
 app.post("/send", upload.fields([
   { name: "cv", maxCount: 1 },
   { name: "otherFiles", maxCount: 5 }
@@ -45,49 +44,49 @@ app.post("/send", upload.fields([
     const { name, email, phone, message } = req.body;
 
     let attachments = [];
-    let filePaths = []; // to delete later
+    let filePaths = [];
 
-    // CV
+    // 👉 build attachments FIRST
     if (req.files["cv"]) {
       const file = req.files["cv"][0];
-
       attachments.push({
         filename: file.originalname,
         content: fs.readFileSync(file.path)
       });
-
       filePaths.push(file.path);
     }
 
-    // Other files
     if (req.files["otherFiles"]) {
       req.files["otherFiles"].forEach(file => {
         attachments.push({
           filename: file.originalname,
           content: fs.readFileSync(file.path)
         });
-
         filePaths.push(file.path);
       });
     }
 
-    // SEND EMAIL TO YOU
+    // ✅ 👉 ADD DATABASE SAVE HERE
+    const fileNames = attachments.map(file => file.filename);
+
+    await Application.create({
+      name,
+      email,
+      phone,
+      message,
+      files: fileNames
+    });
+
+    // 👉 THEN send emails
     await resend.emails.send({
       from: "The Good Management <onboarding@resend.dev>",
       to: "goodmanagement29@gmail.com",
-      subject: "New Application - The Good Management Company",
-      text: `
-New Applicant Details:
-
-Name: ${name}
-Email: ${email}
-Phone: ${phone}
-
-Why they are interested:
-${message}
-      `,
+      subject: "New Application",
+      text: `Name: ${name}`,
       attachments
     });
+
+    ...
 
     // AUTO REPLY TO USER
     await resend.emails.send({
