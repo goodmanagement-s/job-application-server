@@ -8,22 +8,32 @@ require("dotenv").config();
 
 const app = express();
 
-// Middleware
+// =======================
+// MIDDLEWARE
+// =======================
 app.use(cors());
 app.use(express.json());
 
-// File upload setup
+// =======================
+// FILE UPLOAD SETUP
+// =======================
 const upload = multer({ dest: "uploads/" });
 
-// Resend setup
+// =======================
+// RESEND SETUP
+// =======================
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// MongoDB connection (FIXED - no deprecated options)
+// =======================
+// MONGODB CONNECTION
+// =======================
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => console.error("❌ MongoDB error:", err));
 
-// Schema
+// =======================
+// SCHEMA
+// =======================
 const applicationSchema = new mongoose.Schema({
   name: String,
   email: String,
@@ -34,37 +44,44 @@ const applicationSchema = new mongoose.Schema({
 
 const Application = mongoose.model("Application", applicationSchema);
 
-// ROUTE: Submit application
+// =======================
+// ROUTE: SUBMIT APPLICATION
+// =======================
 app.post("/send", upload.fields([
   { name: "cv", maxCount: 1 },
   { name: "files", maxCount: 5 }
 ]), async (req, res) => {
   try {
+    console.log("📥 BODY:", req.body);
+    console.log("📎 FILES:", req.files);
+
     const { name, email, phone, message } = req.body;
 
-    // Save to database
-    const newApp = new Application({
-      name,
-      email,
-      phone,
-      message
-    });
+    // =======================
+    // SAVE TO DATABASE
+    // =======================
+    try {
+      await new Application({ name, email, phone, message }).save();
+      console.log("✅ Saved to database");
+    } catch (dbErr) {
+      console.log("❌ DB ERROR:", dbErr);
+    }
 
-    await newApp.save();
-
-    // Prepare attachments
+    // =======================
+    // PREPARE ATTACHMENTS
+    // =======================
     const attachments = [];
 
-    if (req.files["cv"]) {
-      const file = req.files["cv"][0];
+    if (req.files?.cv) {
+      const file = req.files.cv[0];
       attachments.push({
         filename: file.originalname,
         content: fs.readFileSync(file.path)
       });
     }
 
-    if (req.files["files"]) {
-      req.files["files"].forEach(file => {
+    if (req.files?.files) {
+      req.files.files.forEach(file => {
         attachments.push({
           filename: file.originalname,
           content: fs.readFileSync(file.path)
@@ -72,36 +89,52 @@ app.post("/send", upload.fields([
       });
     }
 
-    // Send email
-    await resend.emails.send({
-      from: "onboarding@resend.dev",
-      to: "goodmanagement29@gmail.com", // 🔥 CHANGE THIS
+    // =======================
+    // SEND EMAIL
+    // =======================
+    const emailResponse = await resend.emails.send({
+      from: "onboarding@resend.dev", // change if you have domain
+      to: "your@email.com", // 🔥 CHANGE THIS
       subject: "New Job Application",
       html: `
         <h2>New Application</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Phone:</strong> ${phone}</p>
-        <p><strong>Message:</strong> ${message}</p>
+        <p><b>Name:</b> ${name}</p>
+        <p><b>Email:</b> ${email}</p>
+        <p><b>Phone:</b> ${phone}</p>
+        <p><b>Message:</b> ${message}</p>
       `,
       attachments
     });
 
-    // Clean up uploaded files
-    attachments.forEach(file => {
-      try {
-        fs.unlinkSync(`uploads/${file.filename}`);
-      } catch {}
-    });
+    console.log("📨 EMAIL RESPONSE:", emailResponse);
+
+    // =======================
+    // CLEAN UP FILES (SAFE)
+    // =======================
+    try {
+      if (req.files?.cv) {
+        fs.unlinkSync(req.files.cv[0].path);
+      }
+
+      if (req.files?.files) {
+        req.files.files.forEach(file => {
+          fs.unlinkSync(file.path);
+        });
+      }
+    } catch (cleanupErr) {
+      console.log("⚠️ Cleanup error:", cleanupErr);
+    }
 
     res.json({ success: true });
 
   } catch (error) {
-    console.error("❌ ERROR:", error);
+    console.error("🔥 FULL ERROR:", error);
     res.status(500).json({ error: "Failed to send application" });
   }
 });
 
-// Start server
+// =======================
+// START SERVER
+// =======================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
