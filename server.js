@@ -4,6 +4,7 @@ const multer = require("multer");
 const fs = require("fs");
 const mongoose = require("mongoose");
 const { Resend } = require("resend");
+require("dotenv").config();
 
 const app = express();
 
@@ -11,13 +12,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// File upload
+// File upload setup
 const upload = multer({ dest: "uploads/" });
 
-// ✅ CONNECT TO MONGODB
+// Resend setup
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// MongoDB connection (FIXED - no deprecated options)
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch(err => console.error(err));
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch(err => console.error("❌ MongoDB error:", err));
 
 // Schema
 const applicationSchema = new mongoose.Schema({
@@ -25,127 +29,79 @@ const applicationSchema = new mongoose.Schema({
   email: String,
   phone: String,
   message: String,
-  files: [String],
   createdAt: { type: Date, default: Date.now }
 });
 
 const Application = mongoose.model("Application", applicationSchema);
 
-// ✅ RESEND SETUP
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// 🚀 FORM ROUTE
+// ROUTE: Submit application
 app.post("/send", upload.fields([
   { name: "cv", maxCount: 1 },
-  { name: "otherFiles", maxCount: 5 }
+  { name: "files", maxCount: 5 }
 ]), async (req, res) => {
-
   try {
     const { name, email, phone, message } = req.body;
 
-    let attachments = [];
-    let filePaths = [];
+    // Save to database
+    const newApp = new Application({
+      name,
+      email,
+      phone,
+      message
+    });
 
-    // CV
+    await newApp.save();
+
+    // Prepare attachments
+    const attachments = [];
+
     if (req.files["cv"]) {
       const file = req.files["cv"][0];
-
       attachments.push({
         filename: file.originalname,
         content: fs.readFileSync(file.path)
       });
-
-      filePaths.push(file.path);
     }
 
-    // Other files
-    if (req.files["otherFiles"]) {
-      req.files["otherFiles"].forEach(file => {
+    if (req.files["files"]) {
+      req.files["files"].forEach(file => {
         attachments.push({
           filename: file.originalname,
           content: fs.readFileSync(file.path)
         });
-
-        filePaths.push(file.path);
       });
     }
 
-    // ✅ SAVE TO DATABASE
-    const fileNames = attachments.map(file => file.filename);
-
-    await Application.create({
-      name,
-      email,
-      phone,
-      message,
-      files: fileNames
-    });
-
-    // 📩 SEND EMAIL TO YOU
+    // Send email
     await resend.emails.send({
-      from: "The Good Management <onboarding@resend.dev>",
-      to: "goodmanagement29@gmail.com",
-      subject: "New Application - The Good Management Company",
-      text: `
-New Applicant Details:
-
-Name: ${name}
-Email: ${email}
-Phone: ${phone}
-
-Message:
-${message}
+      from: "onboarding@resend.dev",
+      to: "your@email.com", // 🔥 CHANGE THIS
+      subject: "New Job Application",
+      html: `
+        <h2>New Application</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone}</p>
+        <p><strong>Message:</strong> ${message}</p>
       `,
       attachments
     });
 
-    // 📧 AUTO REPLY
-    await resend.emails.send({
-      from: "The Good Management <onboarding@resend.dev>",
-      to: email,
-      subject: "Application Received",
-      text: `
-Hi ${name},
-
-Thank you for applying to our Management Development Program.
-
-We’ve received your application and will review it shortly.
-
-Kind regards,
-The Good Management Company
-      `
-    });
-
-    // 🧹 CLEAN UP FILES
-    filePaths.forEach(path => {
+    // Clean up uploaded files
+    attachments.forEach(file => {
       try {
-        fs.unlinkSync(path);
-      } catch (err) {
-        console.error("Delete error:", err);
-      }
+        fs.unlinkSync(`uploads/${file.filename}`);
+      } catch {}
     });
 
-    res.send("✅ Application submitted successfully!");
+    res.json({ success: true });
 
   } catch (error) {
     console.error("❌ ERROR:", error);
-    res.status(500).send("❌ Error sending application.");
+    res.status(500).json({ error: "Failed to send application" });
   }
 });
 
-// 📊 ADMIN ROUTE (VIEW APPLICATIONS)
-app.get("/applications", async (req, res) => {
-  try {
-    const apps = await Application.find().sort({ createdAt: -1 });
-    res.json(apps);
-  } catch (err) {
-    res.status(500).send("Error fetching applications");
-  }
-});
-
-// START SERVER
+// Start server
 const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log("🚀 Server running on port " + PORT);
-});
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
